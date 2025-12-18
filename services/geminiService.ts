@@ -301,11 +301,12 @@ export const generateFashionVideo = async (
   }
 
   // Fetch the actual video bytes using the URI and API Key
-  const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+  const apiKey = getApiKey();
+  const videoResponse = await fetch(`${videoUri}&key=${apiKey}`);
   if (!videoResponse.ok) {
      throw new Error("Failed to download generated video.");
   }
-  
+
   const blob = await videoResponse.blob();
   return URL.createObjectURL(blob);
 };

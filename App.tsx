@@ -39,7 +39,10 @@ const App: React.FC = () => {
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [loadingSample, setLoadingSample] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'top' | 'bottom' | 'shoe'>('all');
-  
+
+  // Sample clothes state (initialized from constant, now mutable through state)
+  const [sampleClothes, setSampleClothes] = useState<typeof SAMPLE_CLOTHES>(SAMPLE_CLOTHES);
+
   // Custom wardrobe state
   const [customClothes, setCustomClothes] = useState<typeof SAMPLE_CLOTHES>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -125,9 +128,9 @@ const App: React.FC = () => {
       else if (item.type === 'bottom') setBottomImage(fileData);
       else if (item.type === 'shoe') setShoeImage(fileData);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Could not load this sample. Please try uploading manually.");
+      setError(err.message || "Could not load this sample. Please try uploading manually.");
     } finally {
       setLoadingSample(null);
     }
@@ -236,19 +239,25 @@ const App: React.FC = () => {
 
   const handleUploadCustom = async (e: React.ChangeEvent<HTMLInputElement>, type: 'top' | 'bottom' | 'shoe') => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const fileData = await processFile(file);
-      
-      const newItem = {
-        id: Date.now(),
-        type,
-        url: fileData.previewUrl,
-        label: file.name.replace(/\.[^/.]+$/, "").substring(0, 20),
-      };
-      
-      const updated = [...customClothes, newItem];
-      saveCustomClothes(updated);
-      setShowUploadModal(false);
+      try {
+        setError(null);
+        const file = e.target.files[0];
+        const fileData = await processFile(file);
+
+        const newItem = {
+          id: Date.now(),
+          type,
+          url: fileData.previewUrl,
+          label: file.name.replace(/\.[^/.]+$/, "").substring(0, 20),
+        };
+
+        const updated = [...customClothes, newItem];
+        saveCustomClothes(updated);
+        setShowUploadModal(false);
+      } catch (err: any) {
+        console.error('Upload error:', err);
+        setError(err.message || "Failed to upload image. Please try again.");
+      }
     }
   };
   
@@ -257,7 +266,7 @@ const App: React.FC = () => {
       // Delete from custom clothes
       const updated = customClothes.filter(item => item.id !== id);
       saveCustomClothes(updated);
-      
+
       // Clear selection if deleted item was selected
       const deletedItem = customClothes.find(item => item.id === id);
       if (deletedItem) {
@@ -266,15 +275,13 @@ const App: React.FC = () => {
         if (deletedItem.type === 'shoe' && shoeImage?.previewUrl === deletedItem.url) setShoeImage(null);
       }
     } else {
-      // Delete from sample clothes
-      const deletedItem = SAMPLE_CLOTHES.find(item => item.id === id);
+      // Delete from sample clothes using state update (no mutation)
+      const deletedItem = sampleClothes.find(item => item.id === id);
       if (deletedItem) {
-        // Remove from SAMPLE_CLOTHES array
-        const index = SAMPLE_CLOTHES.findIndex(item => item.id === id);
-        if (index > -1) {
-          SAMPLE_CLOTHES.splice(index, 1);
-        }
-        
+        // Update state immutably
+        const updated = sampleClothes.filter(item => item.id !== id);
+        setSampleClothes(updated);
+
         // Clear selection if deleted item was selected
         if (deletedItem.type === 'top' && topImage?.previewUrl.includes(deletedItem.url)) setTopImage(null);
         if (deletedItem.type === 'bottom' && bottomImage?.previewUrl.includes(deletedItem.url)) setBottomImage(null);
@@ -283,9 +290,9 @@ const App: React.FC = () => {
     }
   };
 
-  const allClothes = [...SAMPLE_CLOTHES, ...customClothes];
-  const filteredSamples = activeTab === 'all' 
-    ? allClothes 
+  const allClothes = [...sampleClothes, ...customClothes];
+  const filteredSamples = activeTab === 'all'
+    ? allClothes
     : allClothes.filter(i => i.type === activeTab);
 
   return (
@@ -300,10 +307,12 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             {/* Model Selector */}
-            <div className="flex items-center gap-2 bg-stone-100 px-3 py-2 rounded">
-              <span className="text-[10px] uppercase tracking-widest text-stone-600 font-semibold">Model:</span>
+            <div className="flex items-center gap-2 bg-stone-100 px-3 py-2 rounded" role="group" aria-label="AI Model Selection">
+              <span className="text-[10px] uppercase tracking-widest text-stone-600 font-semibold" id="model-label">Model:</span>
               <button
                 onClick={() => setSelectedModel('gemini')}
+                aria-pressed={selectedModel === 'gemini'}
+                aria-label="Select Gemini 3 model"
                 className={`px-3 py-1 text-[9px] uppercase tracking-widest font-bold transition-colors ${
                   selectedModel === 'gemini'
                     ? 'bg-stone-900 text-white'
@@ -314,6 +323,8 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={() => setSelectedModel('seedream')}
+                aria-pressed={selectedModel === 'seedream'}
+                aria-label="Select SeeDream model"
                 className={`px-3 py-1 text-[9px] uppercase tracking-widest font-bold transition-colors ${
                   selectedModel === 'seedream'
                     ? 'bg-stone-900 text-white'
@@ -324,6 +335,8 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={() => setSelectedModel('flux')}
+                aria-pressed={selectedModel === 'flux'}
+                aria-label="Select Flux 2 Pro model"
                 className={`px-3 py-1 text-[9px] uppercase tracking-widest font-bold transition-colors ${
                   selectedModel === 'flux'
                     ? 'bg-stone-900 text-white'
@@ -410,6 +423,7 @@ const App: React.FC = () => {
               label="The Muse"
               selectedFile={personImage}
               onFileSelect={setPersonImage}
+              onError={setError}
               className="h-full w-full"
               icon={
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -428,6 +442,7 @@ const App: React.FC = () => {
                     label="Top"
                     selectedFile={topImage}
                     onFileSelect={setTopImage}
+                    onError={setError}
                     className="h-full"
                     compact={true}
                     icon={
@@ -444,6 +459,7 @@ const App: React.FC = () => {
                     label="Bottom"
                     selectedFile={bottomImage}
                     onFileSelect={setBottomImage}
+                    onError={setError}
                     className="h-full"
                     compact={true}
                     icon={
@@ -461,6 +477,7 @@ const App: React.FC = () => {
                     label="Footwear"
                     selectedFile={shoeImage}
                     onFileSelect={setShoeImage}
+                    onError={setError}
                     className="h-full"
                     compact={true}
                     icon={
@@ -580,10 +597,12 @@ const App: React.FC = () => {
             <button
               onClick={handleTryOn}
               disabled={!personImage || (!topImage && !bottomImage && !shoeImage)}
+              aria-label="Generate fashion lookbook with 4 different poses"
+              aria-disabled={!personImage || (!topImage && !bottomImage && !shoeImage)}
               className={`
                 px-12 py-5 text-sm uppercase tracking-[0.25em] font-semibold transition-all duration-300 relative overflow-hidden group
                 ${personImage && (topImage || bottomImage || shoeImage)
-                  ? 'bg-stone-900 text-white hover:bg-stone-800 hover:px-14 shadow-xl shadow-stone-200' 
+                  ? 'bg-stone-900 text-white hover:bg-stone-800 hover:px-14 shadow-xl shadow-stone-200'
                   : 'bg-stone-200 text-stone-400 cursor-not-allowed'}
               `}
             >

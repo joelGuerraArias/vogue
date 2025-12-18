@@ -9,9 +9,10 @@ interface UploadZoneProps {
   icon: React.ReactNode;
   className?: string;
   compact?: boolean;
+  onError?: (error: string) => void;
 }
 
-export const UploadZone: React.FC<UploadZoneProps> = ({ label, onFileSelect, selectedFile, icon, className = "", compact = false }) => {
+const UploadZoneComponent: React.FC<UploadZoneProps> = ({ label, onFileSelect, selectedFile, icon, className = "", compact = false, onError }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
@@ -20,8 +21,15 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ label, onFileSelect, sel
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const data = await processFile(e.target.files[0]);
-      onFileSelect(data);
+      try {
+        const data = await processFile(e.target.files[0]);
+        onFileSelect(data);
+      } catch (err: any) {
+        console.error('File processing error:', err);
+        if (onError) {
+          onError(err.message || 'Failed to process image');
+        }
+      }
     }
   };
 
@@ -69,3 +77,6 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ label, onFileSelect, sel
     </div>
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export const UploadZone = React.memo(UploadZoneComponent);
