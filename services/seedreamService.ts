@@ -257,47 +257,75 @@ export const generateFluxTryOn = async (
  */
 const pollWavespeedPrediction = async (apiKey: string, getUrl: string): Promise<string> => {
   const maxAttempts = 60; // 5 minutes max (5 seconds * 60)
-  
+  const startTime = Date.now();
+  const maxDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 3;
+
   for (let i = 0; i < maxAttempts; i++) {
+    // Check global timeout
+    if (Date.now() - startTime > maxDuration) {
+      throw new Error('Wavespeed generation timed out after 5 minutes');
+    }
+
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-    
+
     try {
       const response = await fetch(getUrl, {
         headers: {
           'Authorization': `Bearer ${apiKey}`
         }
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to check prediction status: ${response.status}`);
+        consecutiveErrors++;
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`Failed to check prediction status after ${maxConsecutiveErrors} attempts: ${response.status}`);
+        }
+        console.warn(`Prediction check failed (attempt ${i + 1}), retrying...`);
+        continue;
       }
-      
+
+      consecutiveErrors = 0; // Reset on success
       const result = await response.json();
-      console.log(`Wavespeed prediction status (attempt ${i + 1}):`, result);
-      
+      console.log(`Wavespeed prediction status (attempt ${i + 1}/${maxAttempts}):`, result);
+
       // New API structure: data.outputs contains the result images
       if (result.data && result.data.outputs && result.data.outputs.length > 0) {
         const imageUrl = result.data.outputs[0];
         console.log('Image ready, downloading from:', imageUrl);
-        
+
         const imgResponse = await fetch(imageUrl);
+        if (!imgResponse.ok) {
+          throw new Error('Failed to download generated image');
+        }
         const blob = await imgResponse.blob();
         return URL.createObjectURL(blob);
       }
-      
+
       // Check if there's an error
       if (result.data && result.data.status === 'failed') {
         throw new Error(`Wavespeed prediction failed: ${result.data.error || 'Unknown error'}`);
       }
-      
+
       // Continue polling if outputs is still empty (processing)
     } catch (error: any) {
-      console.error('Error polling Wavespeed prediction:', error);
-      throw error;
+      // If it's a critical error (not just a network hiccup), throw immediately
+      if (error.message.includes('failed:') || error.message.includes('download')) {
+        console.error('Critical error in Wavespeed prediction:', error);
+        throw error;
+      }
+      // Otherwise, count as consecutive error and continue
+      consecutiveErrors++;
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        console.error('Too many consecutive errors in Wavespeed prediction:', error);
+        throw new Error(`Polling failed after ${maxConsecutiveErrors} consecutive errors: ${error.message}`);
+      }
+      console.warn(`Temporary error (attempt ${i + 1}), retrying...`, error.message);
     }
   }
-  
-  throw new Error('Wavespeed generation timed out after 5 minutes');
+
+  throw new Error('Wavespeed generation timed out after maximum attempts');
 };
 
 /**
@@ -305,42 +333,70 @@ const pollWavespeedPrediction = async (apiKey: string, getUrl: string): Promise<
  */
 const pollWavespeedJob = async (apiKey: string, jobId: string): Promise<string> => {
   const maxAttempts = 60; // 5 minutes max (5 seconds * 60)
-  
+  const startTime = Date.now();
+  const maxDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 3;
+
   for (let i = 0; i < maxAttempts; i++) {
+    // Check global timeout
+    if (Date.now() - startTime > maxDuration) {
+      throw new Error('Wavespeed job timed out after 5 minutes');
+    }
+
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-    
+
     try {
       const response = await fetch(`https://api.wavespeed.ai/api/v3/jobs/${jobId}`, {
         headers: {
           'Authorization': `Bearer ${apiKey}`
         }
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to check job status: ${response.status}`);
+        consecutiveErrors++;
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`Failed to check job status after ${maxConsecutiveErrors} attempts: ${response.status}`);
+        }
+        console.warn(`Job check failed (attempt ${i + 1}), retrying...`);
+        continue;
       }
-      
+
+      consecutiveErrors = 0; // Reset on success
       const data = await response.json();
-      console.log('Wavespeed job status:', data);
-      
+      console.log(`Wavespeed job status (attempt ${i + 1}/${maxAttempts}):`, data);
+
       if (data.status === 'completed' && data.output_url) {
         const imgResponse = await fetch(data.output_url);
+        if (!imgResponse.ok) {
+          throw new Error('Failed to download completed job output');
+        }
         const blob = await imgResponse.blob();
         return URL.createObjectURL(blob);
       }
-      
+
       if (data.status === 'failed') {
         throw new Error(`Wavespeed job failed: ${data.error || 'Unknown error'}`);
       }
-      
+
       // Continue polling if status is 'processing' or 'queued'
     } catch (error: any) {
-      console.error('Error polling Wavespeed job:', error);
-      throw error;
+      // If it's a critical error (failed job or download error), throw immediately
+      if (error.message.includes('failed:') || error.message.includes('download')) {
+        console.error('Critical error in Wavespeed job:', error);
+        throw error;
+      }
+      // Otherwise, count as consecutive error and continue
+      consecutiveErrors++;
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        console.error('Too many consecutive errors in Wavespeed job:', error);
+        throw new Error(`Job polling failed after ${maxConsecutiveErrors} consecutive errors: ${error.message}`);
+      }
+      console.warn(`Temporary error (attempt ${i + 1}), retrying...`, error.message);
     }
   }
-  
-  throw new Error('Wavespeed generation timed out');
+
+  throw new Error('Wavespeed job timed out after maximum attempts');
 };
 
 /**

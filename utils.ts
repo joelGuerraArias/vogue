@@ -14,7 +14,20 @@ export const readFileAsBase64 = (file: File): Promise<string> => {
   });
 };
 
+const VALID_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export const processFile = async (file: File): Promise<FileData> => {
+  // Validate file type
+  if (!VALID_IMAGE_TYPES.includes(file.type)) {
+    throw new Error(`Invalid file format. Please upload a JPEG, PNG, or WebP image. Current type: ${file.type}`);
+  }
+
+  // Validate file size
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB. Current size: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+  }
+
   const base64 = await readFileAsBase64(file);
   const previewUrl = URL.createObjectURL(file);
   return {
