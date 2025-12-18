@@ -1,0 +1,5 @@
+{
+  "name": "Virtual Stylist & Runway",
+  "description": "Upload your photo and a clothing item to virtually try it on using Gemini Flash, then generate a runway video using Veo.",
+  "requestFramePermissions": []
+}
