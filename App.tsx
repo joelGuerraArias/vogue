@@ -549,7 +549,7 @@ const App: React.FC = () => {
                   }}
                   className={`flex items-center gap-2 px-4 py-2 transition-colors text-[10px] uppercase tracking-widest font-semibold ${allClothes.length > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-stone-100 text-stone-300 cursor-not-allowed'}`}
                 >
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   Eliminar Wardrobe
@@ -612,7 +612,6 @@ const App: React.FC = () => {
                           <p className="text-[9px] uppercase tracking-widest text-center text-stone-900 font-semibold">{item.label}</p>
                         </div>
                       </button>
-                      
                     </div>
                   );
                 })}

@@ -13,7 +13,6 @@ export const hasApiKey = async (): Promise<boolean> => {
   return await hasGeminiApiKey();
 };
 
-
 // 4 different elegant poses with the SAME outfit
 const ELEGANT_POSES = [
   {
